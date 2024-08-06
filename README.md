@@ -1,6 +1,6 @@
-# Do-notation
+# Donotation
 
-Do-notation is a Python package that introduces Haskell-like do notation using a Python decorator. This decorator allows for the elegant composition of monadic operations by translating generator functions into a sequence of monadic `flat_map` method calls.
+Donotation is a Python package that introduces Haskell-like do notation using a Python decorator. This decorator allows for the elegant composition of monadic operations by translating generator functions into a sequence of monadic `flat_map` method calls.
 
 ## Features
 
@@ -67,7 +67,7 @@ The `@do` decorator works by substituting the yield statements with nested `flat
 
 1. AST traversal: Traverse the AST of the generator function to inspect all statements.
 2. Yield operation: When an yield operations is encountered, define an nested function containing the remaining statements. This nested function is then called within the `flat_map` method call.
-3. If-else statements: If an if-else statement is encountered, traverse its AST to inspect all statements. If an yield statement is found, the nested function for the `flat_map` method oncludes the rest of the if-else statement and the remaining statements of the generator function.
+3. If-else statements: If an if-else statement is encountered, traverse its AST to inspect all statements. If an yield statement is found, the nested function for the `flat_map` method includes the rest of the if-else statement and the remaining statements of the generator function.
 
 ## Decorator Implementation
 
@@ -158,3 +158,8 @@ def example_translated():
 ```
 
 This translation shows how each yield in the generator function corresponds to a `flat_map` call that takes a lambda function, chaining the monadic operations together.
+
+
+### Advantages of the do Decorator
+
+One significant advantage of the `@do` decorator is that it eliminates the need for nesting multiple `flat_map` calls and defining additional functions, which is often required when manually chaining monadic operations. This simplifies your code, making it more readable and maintainable.

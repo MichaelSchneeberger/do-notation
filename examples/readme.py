@@ -19,7 +19,7 @@ def collect_even_numbers(num: int):
         return state, num
     return StateMonad(func)
 
-@do
+@do()
 def example(init):
     x = yield collect_even_numbers(init+1)
     y = yield collect_even_numbers(init*x+1)
