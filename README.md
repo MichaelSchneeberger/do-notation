@@ -1,16 +1,16 @@
 # Donotation
 
-Donotation is a Python package that introduces Haskell-like do notation using a Python decorator. This decorator allows for the elegant composition of monadic operations by translating generator functions into a sequence of monadic `flat_map` method calls.
+Donotation is a Python package that introduces Haskell-like do notation using a Python decorator. 
 
 ## Features
 
-* Do Notation Decorator: Use the `@do` decorator to convert generator functions into monadic operations.
-* Simplified Syntax: Write complex monadic sequences in a clean and readable way.
-* Haskell-like Behavior: Emulate Haskell's do notation for monads in Python.
+* Haskell-like Behavior: Emulate Haskell's do notation for Python objects that implement the `flat_map` method.
+* Syntactic sugar: Use the `@do` decorator to convert generator functions into nested `flat_map` method calls by using the Abstract Syntax Tree (AST).
+* Simplified Syntax: Write complex monadic `flat_map` sequences in a clean and readable way without needing to define auxillary functions.
 
 ## Installation
 
-You can install Do-notation using pip:
+You can install Donotation using pip:
 
 ```
 pip install donotation
@@ -20,7 +20,7 @@ pip install donotation
 
 ### Basic Example
 
-First, import the do decorator from the do-notation package. Then, define a class implementing the `flat_map` method to represent the monadic operations. Finally, use the `@do` decorator on the generator function that yields objects of this class.
+First, import the `@do` decorator from the donotation package. Then, define a class implementing the `flat_map` method to represent the monadic operations. Finally, use the `@do` decorator on the generator function that yields objects of this class.
 
 ``` python
 from donotation import do
@@ -44,7 +44,7 @@ def collect_even_numbers(num: int):
         return state, num
     return StateMonad(func)
 
-@do
+@do()
 def example(init):
     x = yield collect_even_numbers(init+1)
     y = yield collect_even_numbers(init*x+1)
@@ -69,6 +69,83 @@ The `@do` decorator works by substituting the yield statements with nested `flat
 2. Yield operation: When an yield operations is encountered, define an nested function containing the remaining statements. This nested function is then called within the `flat_map` method call.
 3. If-else statements: If an if-else statement is encountered, traverse its AST to inspect all statements. If an yield statement is found, the nested function for the `flat_map` method includes the rest of the if-else statement and the remaining statements of the generator function.
 
+### Yield Placement Restrictions
+
+The yield operations within the generator can only be placed within if-else statements but not within for or while statements. Yield statements within the for or while statement are not substituted by a monadic `flat_map` chaining, resulting in a generator function due to the leftover yield statements. In this case, an exception is raised.
+
+#### Good Example
+
+Here’s a good example where the yield statement is only placed within if-else statements:
+
+``` python
+@do()
+def good_example():
+    if condition:
+        x = yield Monad(1)
+    else:
+        x = yield Monad(2)
+    y = yield Monad(x + 1)
+    return Monad(y + 1)
+
+result = good_example()
+```
+
+#### Bad Example
+
+Here’s a bad example where the yield statement is placed within a for or while statement:
+
+``` python
+@do()
+def bad_example():
+    for i in range(3):
+        x = yield Monad(i)
+    return Monad(x + 1)
+
+# This will raise an exception due to improper yield placement
+result = bad_example()
+```
+
+### Customization
+
+The `@do` decorator can be customized to work with different implementations of the flat map operation.
+There are two ways to change the bheavior of the `@do` decorator:
+
+#### Custom Mehtod Name:
+
+If the method is called "bind" instead of "flat_map", you can specify the method name when creating the decorator instance:
+
+``` python
+my_do = do(attr='bind')
+
+@my_do()  # converts the generator function to nested `bind` method calls
+def bad_example():
+    for i in range(3):
+        x = yield Monad(i)
+    return Monad(x + 1)
+```
+
+#### External Flat Map Function:
+
+If the flat map operation is defined as an external function rather than a method of the class, you can define a callback function:
+
+``` python
+flat_map = ...  # some implementation of the flat map operation
+
+def callback(source, fn):
+    return flat_map(source, fn)
+
+my_do = do(callback=callback)
+
+@my_do()  # calls the callback to perform a flat map operation
+def bad_example():
+    for i in range(3):
+        x = yield Monad(i)
+    return Monad(x + 1)
+```
+
+In both cases, the `@do` decorator adapts to the specified method name or external function, allowing for flexible integration with different monadic structures.
+
+
 ## Decorator Implementation
 
 Here is the pseudo-code of the `@do` decorator:
@@ -91,52 +168,17 @@ def do(fn):
     return wrapper
 ```
 
-The provided code is a pseudo-code implementation that illustrates the core concept of the do decorator. 
+The provided code is a pseudo-code implementation that illustrates the core concept of the `@do` decorator. 
 The main difference between this pseudo-code and the actual implementation is that the function given to the `flat_map` method can only be called once in the pseudo-code, whereas in the real implementation, that function can be called arbitrarily many times.
-This distinction is crucial for handling monadic operations correctly and ensuring that the do decorator works as expected in various scenarios.
+This distinction is crucial for handling monadic operations correctly and ensuring that the `@do` decorator works as expected in various scenarios.
 
-### Yield Placement Restrictions
-
-The yield operations within the generator can only be placed within if-else statements but not within for or while statements. Yield statements within the for or while statement are not substituted by a monadic `flat_map` chaining, resulting in a generator function due to the leftover yield statements. In this case, an exception is raised.
-
-#### Good Example
-
-Here’s a good example where the yield statement is only placed within if-else statements:
-
-``` python
-@do
-def good_example():
-    if condition:
-        x = yield Monad(1)
-    else:
-        x = yield Monad(2)
-    y = yield Monad(x + 1)
-    return Monad(y + 1)
-
-result = good_example()
-```
-
-#### Bad Example
-
-Here’s a bad example where the yield statement is placed within a for or while statement:
-
-``` python
-@do
-def bad_example():
-    for i in range(3):
-        x = yield Monad(i)
-    return Monad(x + 1)
-
-# This will raise an exception due to improper yield placement
-result = bad_example()
-```
 
 ### Translating a Generator Function to nested `flat_map` Calls
 
 To better understand how the `@do` decorator translates a generator function into a nested sequence of `flat_map` calls, let's consider the following example function:
 
 ``` python
-@do
+@do()
 def example():
     x = yield Monad(1)
     y = yield Monad(x + 1)
@@ -158,8 +200,3 @@ def example_translated():
 ```
 
 This translation shows how each yield in the generator function corresponds to a `flat_map` call that takes a lambda function, chaining the monadic operations together.
-
-
-### Advantages of the do Decorator
-
-One significant advantage of the `@do` decorator is that it eliminates the need for nesting multiple `flat_map` calls and defining additional functions, which is often required when manually chaining monadic operations. This simplifies your code, making it more readable and maintainable.

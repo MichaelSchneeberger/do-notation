@@ -23,5 +23,5 @@ def rx_action():
     else:
         return rx.empty()
 
-
-rx_action().subscribe(print) # Output will be 0 1 0 1 2 3
+# Output will be 0 1 0 1 2 3
+rx_action().subscribe(print)

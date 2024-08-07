@@ -2,7 +2,7 @@ import ast
 from dataclasses import dataclass
 from functools import wraps
 import inspect
-from typing import Any, Callable, Generator
+from typing import Any, Callable, Generator, ParamSpec, TypeVar
 
 
 def _create_arg(name):
@@ -75,8 +75,7 @@ def _create_module(body):
     return ast.Module(
         body=body,
         type_ignores=[],
-        lineno=0,
-        col_offset=0,
+        lineno=0, col_offset=0,
     )
 
 
@@ -128,9 +127,9 @@ def do(
         def get_flat_map_ast(source, nested_func):
             return _create_method_call(attr=attr, value=source, args=[nested_func])
 
-    def do_decorator[U](
-        func: Callable[..., Generator[U, None, None]],
-    ) -> Callable[..., U]:
+    def do_decorator[**P, U](
+        func: Callable[P, Generator[U, None, U | None]],
+    ) -> Callable[P, U]:
         func_source = inspect.getsource(func)
         func_ast = ast.parse(func_source).body[0]
         func_name = func_ast.name
@@ -236,11 +235,6 @@ def do(
             "Yielding operations are only allowed within if-else statements."
         )
 
-        return wraps(func)(dec_func)
+        return wraps(func)(dec_func) # type: ignore
 
-    # See if we're being called as @do or @do().
-    if func is None:
-        return do_decorator
-
-    # We're called as @do without parens.
-    return do_decorator(func)
+    return do_decorator
