@@ -1,13 +1,20 @@
 from donotation import do
+
+from pymonad.maybe import Just
 from pymonad.writer import Writer
 
 pymonad_do = do(attr='bind')
 
 @pymonad_do
-def write_1_2():
-    x = yield Writer(1, '-got 1-')
-    y = yield Writer(2, '-got 2-')
-    yield Writer(x + y, f'-adding {x} and {y}-')
+def stacked():
+    x = yield Just(1)
+    y = yield Just(2)
 
-# Output will be (3, -got 1--got 2--adding 1 and 2-)
-print(write_1_2())
+    @pymonad_do
+    def inner_write():
+        yield Writer(x + y, f'adding {x} and {y}')
+
+    return inner_write()
+
+# Output will be 3
+print(stacked())

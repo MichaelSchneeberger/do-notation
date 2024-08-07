@@ -2,7 +2,8 @@ import ast
 from dataclasses import dataclass
 from functools import wraps
 import inspect
-from typing import Any, Callable, Generator, ParamSpec, TypeVar
+import textwrap
+from typing import Any, Callable, Generator
 
 
 def _create_arg(name):
@@ -20,45 +21,43 @@ def _create_arguments(args):
         kwonlyargs=[],
         kw_defaults=[],
         defaults=[],
-        lineno=0,
-        col_offset=0,
     )
 
 
-def _create_function(name, body, args=[]):
+def _create_function(name, body, args=[], lineno=0):
     return ast.FunctionDef(
         name=name,
         args=_create_arguments(args=args),
         body=body,
         decorator_list=[],
         type_params=[],
-        lineno=0,
+        lineno=lineno,
         col_offset=0,
     )
 
 
-def _create_call(name, args):
+def _create_call(name, args, lineno=0):
     return ast.Call(
         func=_create_name(name=name),
         args=args,
         keywords=[],
-        lineno=0,
+        lineno=lineno,
         col_offset=0,
     )
 
 
-def _create_method_call(attr: str, value, args):
+def _create_method_call(attr: str, value, args, lineno=0):
     return ast.Call(
         func=ast.Attribute(
             value=value,
             attr=attr,
             ctx=ast.Load(),
-            lineno=0,
+            lineno=lineno,
             col_offset=0,
         ),
         args=args,
         keywords=[],
-        lineno=0,
+        lineno=lineno,
         col_offset=0,
     )
 
@@ -75,7 +74,6 @@ def _create_module(body):
     return ast.Module(
         body=body,
         type_ignores=[],
-        lineno=0, col_offset=0,
     )
 
 
@@ -92,7 +90,7 @@ def _create_if(test, body, orelse):
 def _create_name(name):
     return ast.Name(
         id=name,
-        ctx=ast.Load(lineno=0, col_offset=0),
+        ctx=ast.Load(),
         lineno=0,
         col_offset=0,
     )
@@ -121,16 +119,21 @@ def do(
             return _create_call(
                 name=callback_name,
                 args=[source, nested_func],
+                lineno=2,
             )
     else:
 
         def get_flat_map_ast(source, nested_func):
-            return _create_method_call(attr=attr, value=source, args=[nested_func])
+            return _create_method_call(
+                attr=attr, value=source, args=[nested_func], lineno=2
+            )
 
     def do_decorator[**P, U](
         func: Callable[P, Generator[U, None, U | None]],
     ) -> Callable[P, U]:
-        func_source = inspect.getsource(func)
+        func_lineno = func.__code__.co_firstlineno
+
+        func_source = textwrap.dedent(inspect.getsource(func))
         func_ast = ast.parse(func_source).body[0]
         func_name = func_ast.name
 
@@ -158,6 +161,7 @@ def do(
                         name=nested_func_name,
                         body=func_body.instr,
                         args=[_create_arg(arg_name)],
+                        lineno=func_lineno,
                     )
                 ]
 
@@ -218,23 +222,33 @@ def do(
         args = [arg.arg for arg in func_ast.args.args]
         body = get_body_instructions((func_ast.body,), tuple())
 
-        new_func_ast = _create_function(
-            name=func_name, body=body.instr, args=[_create_arg(arg) for arg in args]
+        dec_func_ast = _create_function(
+            name=func_name,
+            body=body.instr,
+            args=[_create_arg(arg) for arg in args],
+            lineno=func_ast.lineno,
         )
+        ast.increment_lineno(dec_func_ast, func_lineno - 1)
 
         # print(ast.dump(new_func_ast, indent=4))
         # print(ast.unparse(new_func_ast))
 
-        code = compile(_create_module(body=[new_func_ast]), "", mode="exec")
-        exec(code, func.__globals__)
+        code = compile(
+            _create_module(body=[dec_func_ast]),
+            filename=inspect.getsourcefile(func),
+            mode="exec",
+        )
 
-        dec_func = func.__globals__[func_name]
+        frame = inspect.currentframe()
+        globals = frame.f_back.f_locals | func.__globals__
+        exec(code, globals)
+        dec_func = globals[func_name]
 
         assert not inspect.isgenerator(dec_func), (
             f'Unsupported yielding detected in the body of the function "{func_name}" yields not supported. '
             "Yielding operations are only allowed within if-else statements."
         )
 
-        return wraps(func)(dec_func) # type: ignore
+        return wraps(func)(dec_func)  # type: ignore
 
     return do_decorator
