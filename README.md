@@ -63,7 +63,7 @@ The `@do` decorator converts the generator function `example` into a sequence of
 
 ### How It Works
 
-The `@do` decorator works by substituting the yield statements with nested `flat_map` calls using the Abstract Syntax Tree (AST) of the generator function. Here’s a breakdown of the process:
+The `@do` decorator works by substituting the `yield` and `yield from` statements with nested `flat_map` calls using the Abstract Syntax Tree (AST) of the generator function. Here’s a breakdown of the process:
 
 1. AST traversal: Traverse the AST of the generator function to inspect all statements.
 2. Yield operation: When an yield operations is encountered, define an nested function containing the remaining statements. This nested function is then called within the `flat_map` method call.
@@ -200,6 +200,45 @@ def example_translated():
 ```
 
 This translation shows how each yield in the generator function corresponds to a `flat_map` call that takes a lambda function, chaining the monadic operations together.
+
+## Type hints
+
+When using the `yield` operator, type checkers cannot infer the correct types for the values returned by it. In the basic example above, a type checker like Pyright may infer `Unknown` for the variables `x`, `y`, and `z`, even though they should be of type `int`.
+
+To address this issue, you can use the `yield from` operator instead of `yield`. The `yield from` operator can be better supported by type checkers, ensuring that the correct types are inferred. To make this work properly, you need to annotate the return type of the `__iter__` method in the monadic class (e.g., `StateMonad`).
+
+Here’s how to set it up:
+
+``` python
+from __future__ import annotations
+from typing import Callable, Generator
+from donotation import do
+
+class StateMonad[S, T]:
+    def __init__(self, func: Callable[[S], tuple[S, T]]):
+        self.func = func
+
+    # Specifies the return type of the `yield from` operator
+    def __iter__(self) -> Generator[None, None, T]: ...
+
+    def flat_map[U](self, func: Callable[[T], StateMonad[S, U]]):
+        def next(state):
+            n_state, value = self.func(state)
+            return func(value).func(n_state)
+
+        return StateMonad(func=next)
+
+@do()
+def example(init):
+    x: int = yield from collect_even_numbers(init+1)
+    y: int = yield from collect_even_numbers(init*x+1)
+    z: int = yield from collect_even_numbers(x*y+1)
+    return collect_even_numbers(y*z+1)
+
+# Correct type hint is inferred
+m: StateMonad[int] = example(3)
+```
+
 
 ## Limitations
 

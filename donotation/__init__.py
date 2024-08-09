@@ -176,7 +176,7 @@ def do(
 
                         case ast.Assign(
                             targets=[ast.Name(arg_name), *_],
-                            value=ast.Yield(value=yield_value),
+                            value=ast.Yield(value=yield_value) | ast.YieldFrom(value=yield_value),
                         ):
                             return _case_yield(new_body, yield_value, arg_name)
 
