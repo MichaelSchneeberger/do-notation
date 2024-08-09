@@ -12,9 +12,9 @@ def stacked():
 
     @pymonad_do
     def inner_write():
-        yield Writer(x + y, f'adding {x} and {y}')
-
+        yield Writer(x + y, f'adding {x} and {y}')  # NameError: name 'y' is not defined
+    
     return inner_write()
 
-# Output will be 3
+# Output will be (3, adding 1 and 2)
 print(stacked())

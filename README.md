@@ -4,7 +4,7 @@ Donotation is a Python package that introduces Haskell-like do notation using a 
 
 ## Features
 
-* Haskell-like Behavior: Emulate Haskell's do notation for Python objects that implement the `flat_map` method.
+* Haskell-like Behavior: Emulate Haskell's do notation for Python objects that implement the `flat_map` (or `bind`) method.
 * Syntactic sugar: Use the `@do` decorator to convert generator functions into nested `flat_map` method calls by using the Abstract Syntax Tree (AST).
 * Simplified Syntax: Write complex monadic `flat_map` sequences in a clean and readable way without needing to define auxillary functions.
 
@@ -169,7 +169,7 @@ def do(fn):
 ```
 
 The provided code is a pseudo-code implementation that illustrates the core concept of the `@do` decorator. 
-The main difference between this pseudo-code and the actual implementation is that the function given to the `flat_map` method can only be called once in the pseudo-code, whereas in the real implementation, that function can be called arbitrarily many times.
+The main difference between this pseudo-code and the actual implementation is that the function given to the `flat_map` method (i.e. `send_and_yield`) can only be called once in the pseudo-code, whereas in the real implementation, that function can be called arbitrarily many times.
 This distinction is crucial for handling monadic operations correctly and ensuring that the `@do` decorator works as expected in various scenarios.
 
 
@@ -200,3 +200,21 @@ def example_translated():
 ```
 
 This translation shows how each yield in the generator function corresponds to a `flat_map` call that takes a lambda function, chaining the monadic operations together.
+
+## Limitations
+
+### Local variables
+
+Local variables defined after the point where the `@do` decorator is applied to the genertor function cannot be accessed within the generator function.
+The following example raises a `NamedError` exception.
+
+``` python
+x = 1
+
+@do()
+def apply_write():
+    # NameError: name 'y' is not defined
+    return Writer(x + y, f'adding {x} and {y}')
+
+y = 2
+```

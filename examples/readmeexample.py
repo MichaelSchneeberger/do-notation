@@ -24,7 +24,7 @@ def example(init):
     x = yield collect_even_numbers(init+1)
     y = yield collect_even_numbers(init*x+1)
     z = yield collect_even_numbers(x*y+1)
-    yield collect_even_numbers(y*z+1)
+    return collect_even_numbers(y*z+1)
 
 state = set[int]()
 state, value = example(3).func(state)

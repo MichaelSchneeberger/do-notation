@@ -6,6 +6,9 @@ from donotation import do
 
 class FlatMapMixin:
     @abstractmethod
+    def apply(self): ...
+
+    @abstractmethod
     def flat_map(self, fn: Callable): ...
 
 
@@ -28,9 +31,6 @@ def program_(op: IOOperations):
 
 # define the writer monad defining some lazy evaluation
 class Writer(FlatMapMixin):
-    @abstractmethod
-    def apply(self): ...
-
     def map(self, fn: Callable):
         outer_self = self
 

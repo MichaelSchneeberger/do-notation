@@ -106,7 +106,6 @@ class _Returned(_Instructions): ...
 
 
 def do(
-    func=None,
     attr: str = "flat_map",
     callback: Callable[[Any, Callable[[Any], Any]], Any] | None = None,
 ):
@@ -128,16 +127,16 @@ def do(
                 attr=attr, value=source, args=[nested_func], lineno=2
             )
 
-    def do_decorator[**P, U](
-        func: Callable[P, Generator[U, None, U | None]],
-    ) -> Callable[P, U]:
+    def do_decorator[**P, U, V](
+        func: Callable[P, Generator[U, None, V]],
+    ) -> Callable[P, V]:
         func_lineno = func.__code__.co_firstlineno
 
         func_source = textwrap.dedent(inspect.getsource(func))
         func_ast = ast.parse(func_source).body[0]
         func_name = func_ast.name
 
-        def get_body_instructions(fallback_bodies, collected_bodies) -> _Instructions:
+        def get_body_instructions(fallback_bodies, collected_bodies, index=0) -> _Instructions:
             new_body = []
 
             def _case_yield(new_body, yield_value, arg_name="_"):
@@ -154,8 +153,8 @@ def do(
                     + fallback_bodies[: -body_index - 1]
                     + (current_body[instr_index + 1 :],)
                 )
-                func_body = get_body_instructions(new_fallback_bodies, tuple())
-                nested_func_name = "_yield_func"
+                func_body = get_body_instructions(new_fallback_bodies, tuple(), index=index+1)
+                nested_func_name = f"_donotation_nested_flatmap_func_{index}"
                 new_body += [
                     _create_function(
                         name=nested_func_name,
@@ -192,10 +191,10 @@ def do(
                             )
 
                             body_instr = get_body_instructions(
-                                (body,), n_collected_bodies
+                                (body,), n_collected_bodies, index=index,
                             )
                             orelse_instr = get_body_instructions(
-                                (orelse,), n_collected_bodies
+                                (orelse,), n_collected_bodies, index=index,
                             )
 
                             new_body += [
@@ -239,8 +238,11 @@ def do(
             mode="exec",
         )
 
-        frame = inspect.currentframe()
-        globals = frame.f_back.f_locals | func.__globals__
+        # Capture the local variables of the callee at the point where the decorator is applied.
+        # Any additional local variables defined after the decorator is applied cannot be included.
+        locals = inspect.currentframe().f_back.f_locals
+
+        globals = locals | func.__globals__
         exec(code, globals)
         dec_func = globals[func_name]
 
