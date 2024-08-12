@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import ast
 from dataclasses import dataclass
 from functools import wraps
 import inspect
 import textwrap
-from typing import Any, Callable, Generator
+from typing import Any, Callable, Generator, Protocol
 
 
 def _create_arg(name):
@@ -105,29 +107,34 @@ class _Instructions:
 class _Returned(_Instructions): ...
 
 
-def do(
-    attr: str = "flat_map",
-    callback: Callable[[Any, Callable[[Any], Any]], Any] | None = None,
-):
-    if callback:
-        callback_source = inspect.getsource(callback)
-        callback_ast = ast.parse(callback_source).body[0]
-        callback_name = callback_ast.name
+class do:
+    def __init__(
+        self,
+        attr: str = "flat_map",
+        callback: Callable[[Any, Callable[[Any], Any]], Any] | None = None,
+    ):
+        if callback:
+            callback_source = inspect.getsource(callback)
+            callback_ast = ast.parse(callback_source).body[0]
+            callback_name = callback_ast.name
 
-        def to_flat_map_ast(source, nested_func):
-            return _create_call(
-                name=callback_name,
-                args=[source, nested_func],
-                lineno=2,
-            )
-    else:
+            def to_flat_map_ast(source, nested_func):
+                return _create_call(
+                    name=callback_name,
+                    args=[source, nested_func],
+                    lineno=2,
+                )
+        else:
 
-        def to_flat_map_ast(source, nested_func):
-            return _create_method_call(
-                attr=attr, value=source, args=[nested_func], lineno=2
-            )
+            def to_flat_map_ast(source, nested_func):
+                return _create_method_call(
+                    attr=attr, value=source, args=[nested_func], lineno=2
+                )
 
-    def do_decorator[**P, U, V](
+        self.to_flat_map_ast = to_flat_map_ast
+
+    def __call__[**P, U, V](
+        self,
         func: Callable[P, Generator[U, None, V]],
     ) -> Callable[P, V]:
         func_lineno = func.__code__.co_firstlineno
@@ -136,7 +143,9 @@ def do(
         func_ast = ast.parse(func_source).body[0]
         func_name = func_ast.name
 
-        def get_body_instructions(fallback_bodies, collected_bodies, index=0) -> _Instructions:
+        def get_body_instructions(
+            fallback_bodies, collected_bodies, index=0
+        ) -> _Instructions:
             new_body = []
 
             def _case_yield(new_body, yield_value, arg_name="_"):
@@ -153,7 +162,9 @@ def do(
                     + fallback_bodies[: -body_index - 1]
                     + (current_body[instr_index + 1 :],)
                 )
-                func_body = get_body_instructions(new_fallback_bodies, tuple(), index=index+1)
+                func_body = get_body_instructions(
+                    new_fallback_bodies, tuple(), index=index + 1
+                )
                 nested_func_name = f"_donotation_nested_flatmap_func_{index}"
                 new_body += [
                     _create_function(
@@ -165,7 +176,7 @@ def do(
                 ]
 
                 nested_func_ast = _create_name(nested_func_name)
-                flat_map_ast = to_flat_map_ast(yield_value, nested_func_ast)
+                flat_map_ast = self.to_flat_map_ast(yield_value, nested_func_ast)
                 return _Returned(new_body + [_create_return_value(flat_map_ast)])
 
             for body_index, current_body in enumerate(reversed(fallback_bodies)):
@@ -176,7 +187,8 @@ def do(
 
                         case ast.Assign(
                             targets=[ast.Name(arg_name), *_],
-                            value=ast.Yield(value=yield_value) | ast.YieldFrom(value=yield_value),
+                            value=ast.Yield(value=yield_value)
+                            | ast.YieldFrom(value=yield_value),
                         ):
                             return _case_yield(new_body, yield_value, arg_name)
 
@@ -191,10 +203,14 @@ def do(
                             )
 
                             body_instr = get_body_instructions(
-                                (body,), n_collected_bodies, index=index,
+                                (body,),
+                                n_collected_bodies,
+                                index=index,
                             )
                             orelse_instr = get_body_instructions(
-                                (orelse,), n_collected_bodies, index=index,
+                                (orelse,),
+                                n_collected_bodies,
+                                index=index,
                             )
 
                             new_body += [
@@ -253,4 +269,22 @@ def do(
 
         return wraps(func)(dec_func)  # type: ignore
 
-    return do_decorator
+        # return do_decorator
+
+
+class _ReturnTypeProtocol(Protocol):
+    def flat_map(self, func: Callable) -> _ReturnTypeProtocol: ...
+
+
+class _DoTyped(do):
+    def __init__(self):
+        super().__init__()
+
+    def __call__[**P, U, V: _ReturnTypeProtocol](
+        self,
+        func: Callable[P, Generator[U, None, V]],
+    ) -> Callable[P, V]:
+        return super().__call__(func)
+
+
+do_typed = _DoTyped()

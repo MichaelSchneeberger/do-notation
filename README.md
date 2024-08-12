@@ -1,6 +1,6 @@
-# Donotation
+# Do-notation
 
-Donotation is a Python package that introduces Haskell-like do notation using a Python decorator. 
+Do-notation is a Python package that introduces Haskell-like do notation using a Python decorator. 
 
 ## Features
 
@@ -10,7 +10,7 @@ Donotation is a Python package that introduces Haskell-like do notation using a 
 
 ## Installation
 
-You can install Donotation using pip:
+You can install Do-notation using pip:
 
 ```
 pip install donotation
@@ -20,7 +20,7 @@ pip install donotation
 
 ### Basic Example
 
-First, import the `@do` decorator from the donotation package. Then, define a class implementing the `flat_map` method to represent the monadic operations. Finally, use the `@do` decorator on the generator function that yields objects of this class.
+First, import the `@do` decorator from the do-notation package. Then, define a class implementing the `flat_map` method to represent the monadic operations. Finally, use the `@do` decorator on the generator function that yields objects of this class.
 
 ``` python
 from donotation import do
@@ -47,13 +47,17 @@ def collect_even_numbers(num: int):
 @do()
 def example(init):
     x = yield collect_even_numbers(init+1)
-    y = yield collect_even_numbers(init*x+1)
-    z = yield collect_even_numbers(x*y+1)
-    return collect_even_numbers(y*z+1)
+    y = yield collect_even_numbers(x+1)
+    z = yield collect_even_numbers(y+1)
+    return collect_even_numbers(z+1)
 
 state = set[int]()
 state, value = example(3).func(state)
-print(state)   # Output will be {4, 690}
+
+# Output will be value=7
+print(f'{value=}')
+# Output will be state={4, 6}
+print(f'{state=}')
 ```
 
 In this example, we define a `StateMonad` class that implements a `flat_map` method to represent a state monad.
@@ -68,6 +72,21 @@ The `@do` decorator works by substituting the `yield` and `yield from` statement
 1. AST traversal: Traverse the AST of the generator function to inspect all statements.
 2. Yield operation: When an yield operations is encountered, define an nested function containing the remaining statements. This nested function is then called within the `flat_map` method call.
 3. If-else statements: If an if-else statement is encountered, traverse its AST to inspect all statements. If an yield statement is found, the nested function for the `flat_map` method includes the rest of the if-else statement and the remaining statements of the generator function.
+
+The above example is conceptually translated into the following nested `flat_map` calls:
+
+``` python
+def example_translated(init):
+    return collect_even_numbers(init+1).flat_map(lambda x: 
+        collect_even_numbers(x+1).flat_map(lambda y: 
+            yield collect_even_numbers(y+1).flat_map(lambda z: 
+                collect_even_numbers(z+1)
+            )
+        )
+    )
+```
+
+<!-- This translation shows how each yield in the generator function corresponds to a `flat_map` call that takes a lambda function, chaining the monadic operations together. -->
 
 ### Yield Placement Restrictions
 
@@ -173,7 +192,7 @@ The main difference between this pseudo-code and the actual implementation is th
 This distinction is crucial for handling monadic operations correctly and ensuring that the `@do` decorator works as expected in various scenarios.
 
 
-### Translating a Generator Function to nested `flat_map` Calls
+<!-- ### Translating a Generator Function to nested `flat_map` Calls
 
 To better understand how the `@do` decorator translates a generator function into a nested sequence of `flat_map` calls, let's consider the following example function:
 
@@ -199,7 +218,7 @@ def example_translated():
     )
 ```
 
-This translation shows how each yield in the generator function corresponds to a `flat_map` call that takes a lambda function, chaining the monadic operations together.
+This translation shows how each yield in the generator function corresponds to a `flat_map` call that takes a lambda function, chaining the monadic operations together. -->
 
 ## Type hints
 
@@ -231,9 +250,9 @@ class StateMonad[S, T]:
 @do()
 def example(init):
     x: int = yield from collect_even_numbers(init+1)
-    y: int = yield from collect_even_numbers(init*x+1)
-    z: int = yield from collect_even_numbers(x*y+1)
-    return collect_even_numbers(y*z+1)
+    y: int = yield from collect_even_numbers(x+1)
+    z: int = yield from collect_even_numbers(y+1)
+    return collect_even_numbers(z+1)
 
 # Correct type hint is inferred
 m: StateMonad[int] = example(3)

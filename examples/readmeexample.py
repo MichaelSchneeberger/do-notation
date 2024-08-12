@@ -22,12 +22,14 @@ def collect_even_numbers(num: int):
 @do()
 def example(init):
     x = yield collect_even_numbers(init+1)
-    y = yield collect_even_numbers(init*x+1)
-    z = yield collect_even_numbers(x*y+1)
-    return collect_even_numbers(y*z+1)
+    y = yield collect_even_numbers(x+1)
+    z = yield collect_even_numbers(y+1)
+    return collect_even_numbers(z+1)
 
 state = set[int]()
 state, value = example(3).func(state)
 
-# Output will be {4, 690}
-print(state)
+# Output will be value=7
+print(f'{value=}')
+# Output will be state={4, 6}
+print(f'{state=}')
