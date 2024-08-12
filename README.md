@@ -5,7 +5,7 @@ Donotation is a Python package that introduces Haskell-like do notation using a 
 ## Features
 
 * Haskell-like Behavior: Emulate Haskell's do notation for Python objects that implement the `flat_map` (or `bind`) method.
-* Syntactic sugar: Use the `@do` decorator to convert generator functions into nested `flat_map` method calls by using the Abstract Syntax Tree (AST).
+* Syntactic sugar: Use the `@do` decorator to convert generator functions into nested `flat_map` method calls by modifying the Abstract Syntax Tree (AST).
 * Simplified Syntax: Write complex monadic `flat_map` sequences in a clean and readable way without needing to define auxillary functions.
 
 ## Installation

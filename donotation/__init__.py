@@ -114,7 +114,7 @@ def do(
         callback_ast = ast.parse(callback_source).body[0]
         callback_name = callback_ast.name
 
-        def get_flat_map_ast(source, nested_func):
+        def to_flat_map_ast(source, nested_func):
             return _create_call(
                 name=callback_name,
                 args=[source, nested_func],
@@ -122,7 +122,7 @@ def do(
             )
     else:
 
-        def get_flat_map_ast(source, nested_func):
+        def to_flat_map_ast(source, nested_func):
             return _create_method_call(
                 attr=attr, value=source, args=[nested_func], lineno=2
             )
@@ -165,7 +165,7 @@ def do(
                 ]
 
                 nested_func_ast = _create_name(nested_func_name)
-                flat_map_ast = get_flat_map_ast(yield_value, nested_func_ast)
+                flat_map_ast = to_flat_map_ast(yield_value, nested_func_ast)
                 return _Returned(new_body + [_create_return_value(flat_map_ast)])
 
             for body_index, current_body in enumerate(reversed(fallback_bodies)):
