@@ -79,7 +79,7 @@ The above example is conceptually translated into the following nested `flat_map
 def example_translated(init):
     return collect_even_numbers(init+1).flat_map(lambda x: 
         collect_even_numbers(x+1).flat_map(lambda y: 
-            yield collect_even_numbers(y+1).flat_map(lambda z: 
+            collect_even_numbers(y+1).flat_map(lambda z: 
                 collect_even_numbers(z+1)
             )
         )
@@ -165,7 +165,7 @@ def bad_example():
 In both cases, the `@do` decorator adapts to the specified method name or external function, allowing for flexible integration with different monadic structures.
 
 
-## Decorator Implementation
+<!-- ## Decorator Implementation
 
 Here is the pseudo-code of the `@do` decorator:
 
@@ -189,7 +189,7 @@ def do(fn):
 
 The provided code is a pseudo-code implementation that illustrates the core concept of the `@do` decorator. 
 The main difference between this pseudo-code and the actual implementation is that the function given to the `flat_map` method (i.e. `send_and_yield`) can only be called once in the pseudo-code, whereas in the real implementation, that function can be called arbitrarily many times.
-This distinction is crucial for handling monadic operations correctly and ensuring that the `@do` decorator works as expected in various scenarios.
+This distinction is crucial for handling monadic operations correctly and ensuring that the `@do` decorator works as expected in various scenarios. -->
 
 
 <!-- ### Translating a Generator Function to nested `flat_map` Calls
