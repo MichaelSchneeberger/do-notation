@@ -5,7 +5,7 @@ Do-notation is a Python package that introduces Haskell-like do notation using a
 ## Features
 
 * Haskell-like Behavior: Emulate Haskell's do notation for Python objects that implement the `flat_map` (or `bind`) method.
-* Syntactic sugar: Use the `@do` decorator to convert generator functions into nested `flat_map` method calls by modifying the Abstract Syntax Tree (AST).
+* Syntactic sugar: Use the `do` decorator to convert generator functions into nested `flat_map` method calls by modifying the Abstract Syntax Tree (AST).
 * Simplified Syntax: Write complex monadic `flat_map` sequences in a clean and readable way without needing to define auxillary functions.
 
 ## Installation
@@ -20,7 +20,7 @@ pip install donotation
 
 ### Basic Example
 
-First, import the `@do` decorator from the do-notation package. Then, define a class implementing the `flat_map` method to represent the monadic operations. Finally, use the `@do` decorator on the generator function that yields objects of this class.
+First, import the `do` decorator from the do-notation package. Then, define a class implementing the `flat_map` method to represent the monadic operations. Finally, use the `do` decorator on the generator function that yields objects of this class.
 
 ``` python
 from donotation import do
@@ -46,31 +46,29 @@ def collect_even_numbers(num: int):
 
 @do()
 def example(init):
-    x = yield collect_even_numbers(init+1)
-    y = yield collect_even_numbers(x+1)
-    z = yield collect_even_numbers(y+1)
+    x = yield collect_even_numbers(init + 1)
+    y = yield collect_even_numbers(x + 1)
+    z = yield collect_even_numbers(y + 1)
 
     # The generator function must return a `StateMonad` rather than the 
     # containerized value itself (unlike in other do-notation implementations).
-    return collect_even_numbers(z+1)
+    return collect_even_numbers(z + 1)
 
 state = set[int]()
 state, value = example(3).func(state)
 
-# Output will be value=7
-print(f'{value=}')
-# Output will be state={4, 6}
-print(f'{state=}')
+print(f'{value=}')              # Output will be value=7
+print(f'{state=}')              # Output will be state={4, 6}
 ```
 
 In this example, we define a `StateMonad` class that implements a `flat_map` method to represent a state monad.
 The helper method `collect_even_numbers` is used to generate a sequence of monadic operations within the generator function `example`, which stores the immediate values if they are even integer.
-The `@do` decorator converts the generator function `example` into a sequence of `flat_map` calls on the `StateMonad` objects. 
+The `do` decorator converts the generator function `example` into a sequence of `flat_map` calls on the `StateMonad` objects. 
 
 
 ### How It Works
 
-The `@do` decorator works by substituting the `yield` and `yield from` statements with nested `flat_map` calls using the Abstract Syntax Tree (AST) of the generator function. Here’s a breakdown of the process:
+The `do` decorator works by substituting the `yield` and `yield from` statements with nested `flat_map` calls using the Abstract Syntax Tree (AST) of the generator function. Here’s a breakdown of the process:
 
 1. AST traversal: Traverse the AST of the generator function to inspect all statements.
 2. Yield operation: When an yield operations is encountered, define an nested function containing the remaining statements. This nested function is then called within the `flat_map` method call.
@@ -80,10 +78,10 @@ The above example is conceptually translated into the following nested `flat_map
 
 ``` python
 def example_translated(init):
-    return collect_even_numbers(init+1).flat_map(lambda x: 
-        collect_even_numbers(x+1).flat_map(lambda y: 
-            collect_even_numbers(y+1).flat_map(lambda z: 
-                collect_even_numbers(z+1)
+    return collect_even_numbers(init + 1).flat_map(lambda x: 
+        collect_even_numbers(x + 1).flat_map(lambda y: 
+            collect_even_numbers(y + 1).flat_map(lambda z: 
+                collect_even_numbers(z + 1)
             )
         )
     )
@@ -101,15 +99,15 @@ Here’s a good example where the yield statement is only placed within if-else 
 
 ``` python
 @do()
-def good_example():
+def good_example(init):
     if condition:
-        x = yield Monad(1)
+        x = yield collect_even_numbers(init)
     else:
-        x = yield Monad(2)
-    y = yield Monad(x + 1)
-    return Monad(y + 1)
+        x = yield collect_even_numbers(init + 1)
+    y = yield collect_even_numbers(x + 1)
+    return collect_even_numbers(y + 1)
 
-result = good_example()
+result = good_example(3)
 ```
 
 ### Bad Example
@@ -118,19 +116,20 @@ Here’s a bad example where the yield statement is placed within a for or while
 
 ``` python
 @do()
-def bad_example():
-    for i in range(3):
-        x = yield Monad(i)
-    return Monad(x + 1)
+def bad_example(init):
+    x = init
+    for _ in range(3):
+        x = yield collect_even_numbers(x)
+    return collect_even_numbers(x + 1)
 
 # This will raise an exception due to improper yield placement
-result = bad_example()
+result = bad_example(3)
 ```
 
 ## Customization
 
-The `@do` decorator can be customized to work with different implementations of the flat map operation.
-There are two ways to change the bheavior of the `@do` decorator:
+The `do` decorator can be customized to work with different implementations of the flat map operation.
+There are two ways to change the bheavior of the `do` decorator:
 
 ### Custom Mehtod Name:
 
@@ -140,10 +139,8 @@ If the method is called "bind" instead of "flat_map", you can specify the method
 my_do = do(attr='bind')
 
 @my_do()  # converts the generator function to nested `bind` method calls
-def bad_example():
-    for i in range(3):
-        x = yield Monad(i)
-    return Monad(x + 1)
+def example():
+    # ...
 ```
 
 ### External Flat Map Function:
@@ -159,18 +156,16 @@ def callback(source, fn):
 my_do = do(callback=callback)
 
 @my_do()  # calls the callback to perform a flat map operation
-def bad_example():
-    for i in range(3):
-        x = yield Monad(i)
-    return Monad(x + 1)
+def example():
+    # ...
 ```
 
-In both cases, the `@do` decorator adapts to the specified method name or external function, allowing for flexible integration with different monadic structures.
+In both cases, the `do` decorator adapts to the specified method name or external function, allowing for flexible integration with different monadic structures.
 
 
 <!-- ## Decorator Implementation
 
-Here is the pseudo-code of the `@do` decorator:
+Here is the pseudo-code of the `do` decorator:
 
 ``` python
 def do(fn):
@@ -190,14 +185,14 @@ def do(fn):
     return wrapper
 ```
 
-The provided code is a pseudo-code implementation that illustrates the core concept of the `@do` decorator. 
+The provided code is a pseudo-code implementation that illustrates the core concept of the `do` decorator. 
 The main difference between this pseudo-code and the actual implementation is that the function given to the `flat_map` method (i.e. `send_and_yield`) can only be called once in the pseudo-code, whereas in the real implementation, that function can be called arbitrarily many times.
-This distinction is crucial for handling monadic operations correctly and ensuring that the `@do` decorator works as expected in various scenarios. -->
+This distinction is crucial for handling monadic operations correctly and ensuring that the `do` decorator works as expected in various scenarios. -->
 
 
 <!-- ### Translating a Generator Function to nested `flat_map` Calls
 
-To better understand how the `@do` decorator translates a generator function into a nested sequence of `flat_map` calls, let's consider the following example function:
+To better understand how the `do` decorator translates a generator function into a nested sequence of `flat_map` calls, let's consider the following example function:
 
 ``` python
 @do()
@@ -261,12 +256,25 @@ def example(init):
 m: StateMonad[int] = example(3)
 ```
 
+Furthermore, if you are using `flat_map` as the monadic method name, you can use `do_typed` to ensure that the returned object correctly implements the `flat_map` method. 
+
+In the example below, type checking fails because the integer `1` does not implement a `flat_map` method.
+Instead, the generator function should return a `StateMonad` object.
+
+``` python
+from donotation import do_typed
+
+# This will fail type checking since the return value does not implement `flat_map`
+@do_typed
+def example():
+    return 1
+```
 
 ## Limitations
 
 ### Local variables
 
-Local variables defined after the point where the `@do` decorator is applied to the genertor function cannot be accessed within the generator function.
+Local variables defined after the point where the `do` decorator is applied to the genertor function cannot be accessed within the generator function.
 The following example raises a `NamedError` exception.
 
 ``` python
@@ -290,7 +298,7 @@ Here are some other Python libraries that implement the do-notation:
 * [https://github.com/TRCYX/py_monad_do](https://github.com/TRCYX/py_monad_do)
 * [https://github.com/dbrattli/Expression](https://github.com/dbrattli/Expression)
 
-These libaries implement the `@do` decorator as a real generator, similar to the following pseudo-code:
+These libaries implement the `do` decorator as a real generator, similar to the following pseudo-code:
 
 ``` python
 def do(fn):
@@ -311,4 +319,4 @@ def do(fn):
 ```
 
 This implementation has the disadvantage that each function given to the `flat_map` method (i.e. `send_and_yield`) can only be called once due to a the instruction pointer of the generator.
-This difference is crucial for handling monadic operations correctly and ensuring that the `@do` decorator works as expected in various scenarios.
+This difference is crucial for handling monadic operations correctly and ensuring that the `do` decorator works as expected in various scenarios.

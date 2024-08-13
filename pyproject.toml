@@ -1,6 +1,6 @@
 [project]
 name = "donotation"
-version = "0.0.7"
+version = "0.0.8"
 description = 'A library that introduces the Haskell-like do notation using a Python decorator.'
 authors = [
   {name="Michael Schneeberger", email="michael.schneeb@hotmail.com"},
