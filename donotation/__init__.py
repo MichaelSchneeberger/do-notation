@@ -269,8 +269,6 @@ class do:
 
         return wraps(func)(dec_func)  # type: ignore
 
-        # return do_decorator
-
 
 class _ReturnTypeProtocol(Protocol):
     def flat_map(self, func: Callable) -> _ReturnTypeProtocol: ...

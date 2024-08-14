@@ -7,6 +7,7 @@ Do-notation is a Python package that introduces Haskell-like do notation using a
 * Haskell-like Behavior: Emulate Haskell's do notation for Python objects that implement the `flat_map` (or `bind`) method.
 * Syntactic sugar: Use the `do` decorator to convert generator functions into nested `flat_map` method calls by modifying the Abstract Syntax Tree (AST).
 * Simplified Syntax: Write complex monadic `flat_map` sequences in a clean and readable way without needing to define auxillary functions.
+* Type hinting: The type hint of value returned by the decorated generator function is correctly inferred by the type checkers.
 
 ## Installation
 
@@ -65,6 +66,7 @@ In this example, we define a `StateMonad` class that implements a `flat_map` met
 The helper method `collect_even_numbers` is used to generate a sequence of monadic operations within the generator function `example`, which stores the immediate values if they are even integer.
 The `do` decorator converts the generator function `example` into a sequence of `flat_map` calls on the `StateMonad` objects. 
 
+Unlike other do-notation implementations, the generator function must return an object that implements the `flat_map` method, rather than directly returning the containerized value. This design choice simplifies the library by only requiring the implementation of the `flat_map` method, avoiding the need for additional methods like `return` or `map`. Additionally, this approach ensures accurate type hint inference, making the code both cleaner and more type-safe.
 
 ### How It Works
 
