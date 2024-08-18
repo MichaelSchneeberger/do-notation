@@ -5,97 +5,7 @@ from dataclasses import dataclass
 from functools import wraps
 import inspect
 import textwrap
-from typing import Any, Callable, Generator, Protocol
-
-
-def _create_arg(name):
-    return ast.arg(
-        arg=name,
-        lineno=0,
-        col_offset=0,
-    )
-
-
-def _create_arguments(args):
-    return ast.arguments(
-        posonlyargs=[],
-        args=args,
-        kwonlyargs=[],
-        kw_defaults=[],
-        defaults=[],
-    )
-
-
-def _create_function(name, body, args=[], lineno=0):
-    return ast.FunctionDef(
-        name=name,
-        args=_create_arguments(args=args),
-        body=body,
-        decorator_list=[],
-        type_params=[],
-        lineno=lineno,
-        col_offset=0,
-    )
-
-
-def _create_call(name, args, lineno=0):
-    return ast.Call(
-        func=_create_name(name=name),
-        args=args,
-        keywords=[],
-        lineno=lineno,
-        col_offset=0,
-    )
-
-
-def _create_method_call(attr: str, value, args, lineno=0):
-    return ast.Call(
-        func=ast.Attribute(
-            value=value,
-            attr=attr,
-            ctx=ast.Load(),
-            lineno=lineno,
-            col_offset=0,
-        ),
-        args=args,
-        keywords=[],
-        lineno=lineno,
-        col_offset=0,
-    )
-
-
-def _create_return_value(value):
-    return ast.Return(
-        value=value,
-        lineno=0,
-        col_offset=0,
-    )
-
-
-def _create_module(body):
-    return ast.Module(
-        body=body,
-        type_ignores=[],
-    )
-
-
-def _create_if(test, body, orelse):
-    return ast.If(
-        test=test,
-        body=body,
-        orelse=orelse,
-        lineno=0,
-        col_offset=0,
-    )
-
-
-def _create_name(name):
-    return ast.Name(
-        id=name,
-        ctx=ast.Load(),
-        lineno=0,
-        col_offset=0,
-    )
+from typing import Any, Callable, Generator
 
 
 @dataclass
@@ -118,17 +28,34 @@ class do:
             callback_ast = ast.parse(callback_source).body[0]
             callback_name = callback_ast.name
 
-            def to_flat_map_ast(source, nested_func):
-                return _create_call(
-                    name=callback_name,
+            def to_flat_map_ast(source, nested_func, lineno):
+                return ast.Call(
+                    func=ast.Name(
+                        id=callback_name,
+                        ctx=ast.Load(),
+                        lineno=0,
+                        col_offset=0,
+                    ),
                     args=[source, nested_func],
-                    lineno=2,
+                    keywords=[],
+                    lineno=lineno,
+                    col_offset=0,
                 )
         else:
 
-            def to_flat_map_ast(source, nested_func):
-                return _create_method_call(
-                    attr=attr, value=source, args=[nested_func], lineno=2
+            def to_flat_map_ast(source, nested_func, lineno):
+                return ast.Call(
+                    func=ast.Attribute(
+                        value=source,
+                        attr=attr,
+                        ctx=ast.Load(),
+                        lineno=lineno,
+                        col_offset=0,
+                    ),
+                    args=[nested_func],
+                    keywords=[],
+                    lineno=0,
+                    col_offset=0,
                 )
 
         self.to_flat_map_ast = to_flat_map_ast
@@ -143,113 +70,191 @@ class do:
         func_ast = ast.parse(func_source).body[0]
         func_name = func_ast.name
 
-        def get_body_instructions(
-            fallback_bodies, collected_bodies, index=0
+        def get_nested_flatmap_instr(
+            current_scope_instr: list,
+            outer_scope_instr: list = [],
+            nesting_index: int = 0,
         ) -> _Instructions:
-            new_body = []
+            """
+            This function traverses the given body and translates the sequence of yield statements into 
+            a nested `flat_map` method call sequence.
 
-            def _case_yield(new_body, yield_value, arg_name="_"):
-                # is last isntruction?
+            Arguments:
+            - current_scope_instr: List of instructions being traversed by the function until a yield statement
+              is encountered.
+            - outer_scope_instr: List of instructions that follow (possibly nested) if-else statements. 
+              This is used when `get_nested_flatmap_instr` is called recursively.
+            - nesting_index: Index representing the current depth within the nested flat_map call stack.
+            """
+
+            n_body = []
+
+            def _case_yield(yield_value, lineno, arg_name="_", n_body=n_body):
+                # If the generator function does not explicitly define a return value
+                # (resulting in None by Python convention), the monadic object produced
+                # by the last yield statement is directly returned rather than invoking
+                # a flat_map call on it.
                 if (
-                    all(len(b) == 0 for b in collected_bodies)
-                    and body_index == len(fallback_bodies) - 1
-                    and instr_index == len(current_body) - 1
+                    len(outer_scope_instr) == 0
+                    and instr_index == len(current_scope_instr) - 1
                 ):
-                    return _Returned(new_body + [_create_return_value(yield_value)])
+                    return_value = ast.Return(
+                        value=yield_value,
+                        lineno=0,
+                        col_offset=0,
+                    )
+                    return _Returned(n_body + [return_value])
 
-                new_fallback_bodies = (
-                    collected_bodies
-                    + fallback_bodies[: -body_index - 1]
-                    + (current_body[instr_index + 1 :],)
+                # collect all subsequent instructions and put them inside a local function
+                # called '_donotation_flatmap_func_[index]'
+
+                n_current_scope_instr = (
+                    current_scope_instr[instr_index + 1 :] + outer_scope_instr
                 )
-                func_body = get_body_instructions(
-                    new_fallback_bodies, tuple(), index=index + 1
+                func_body = get_nested_flatmap_instr(
+                    current_scope_instr=n_current_scope_instr,
+                    nesting_index=nesting_index + 1,
                 )
-                nested_func_name = f"_donotation_nested_flatmap_func_{index}"
-                new_body += [
-                    _create_function(
+                nested_func_name = f"_donotation_flatmap_func_{nesting_index}"
+                n_body += [
+                    ast.FunctionDef(
                         name=nested_func_name,
+                        args=ast.arguments(
+                            posonlyargs=[],
+                            args=[
+                                ast.arg(
+                                    arg=arg_name,
+                                    lineno=0,
+                                    col_offset=0,
+                                )
+                            ],
+                            kwonlyargs=[],
+                            kw_defaults=[],
+                            defaults=[],
+                        ),
                         body=func_body.instr,
-                        args=[_create_arg(arg_name)],
+                        decorator_list=[],
+                        type_params=[],
                         lineno=func_lineno,
+                        col_offset=0,
                     )
                 ]
 
-                nested_func_ast = _create_name(nested_func_name)
-                flat_map_ast = self.to_flat_map_ast(yield_value, nested_func_ast)
-                return _Returned(new_body + [_create_return_value(flat_map_ast)])
+                # call the flat_map method with the local function as an argument
 
-            for body_index, current_body in enumerate(reversed(fallback_bodies)):
-                for instr_index, instr in enumerate(current_body):
-                    match instr:
-                        case ast.Expr(value=ast.Yield(value=yield_value)):
-                            return _case_yield(new_body, yield_value)
+                nested_func_ast = ast.Name(
+                    id=nested_func_name,
+                    ctx=ast.Load(),
+                    lineno=0,
+                    col_offset=0,
+                )
+                flat_map_ast = self.to_flat_map_ast(yield_value, nested_func_ast, lineno)
+                return_flat_map_call = ast.Return(
+                    value=flat_map_ast,
+                    lineno=0,
+                    col_offset=0,
+                )
+                return _Returned(n_body + [return_flat_map_call])
 
-                        case ast.Assign(
-                            targets=[ast.Name(arg_name), *_],
-                            value=ast.Yield(value=yield_value)
-                            | ast.YieldFrom(value=yield_value),
-                        ):
-                            return _case_yield(new_body, yield_value, arg_name)
+            for instr_index, instr in enumerate(current_scope_instr):
+                match instr:
+                    case ast.Expr(
+                        value=ast.Yield(value=yield_value, lineno=lineno)
+                        | ast.YieldFrom(value=yield_value, lineno=lineno)
+                    ):
+                        return _case_yield(yield_value, lineno)
 
-                        case ast.Return():
-                            return _Returned(new_body + [instr])
+                    case ast.Assign(
+                        targets=[ast.Name(arg_name), *_],
+                        value=ast.Yield(value=yield_value)
+                        | ast.YieldFrom(value=yield_value),
+                        lineno=lineno,
+                    ):
+                        return _case_yield(yield_value, lineno, arg_name)
 
-                        case ast.If(test, body, orelse):
-                            n_collected_bodies = (
-                                collected_bodies
-                                + fallback_bodies[: -body_index - 1]
-                                + (current_body[instr_index + 1 :],)
+                    case ast.Return():
+                        return _Returned(n_body + [instr])
+
+                    case ast.If(test, body, orelse):
+                        n_outer_scope_instr = (
+                            current_scope_instr[instr_index + 1 :] + outer_scope_instr
+                        )
+
+                        body_instr = get_nested_flatmap_instr(
+                            current_scope_instr=body,
+                            outer_scope_instr=n_outer_scope_instr,
+                            nesting_index=nesting_index,
+                        )
+                        orelse_instr = get_nested_flatmap_instr(
+                            current_scope_instr=orelse,
+                            outer_scope_instr=n_outer_scope_instr,
+                            nesting_index=nesting_index,
+                        )
+
+                        n_body += [
+                            ast.If(
+                                test=test,
+                                body=body_instr.instr,
+                                orelse=orelse_instr.instr,
+                                lineno=0,
+                                col_offset=0,
                             )
+                        ]
 
-                            body_instr = get_body_instructions(
-                                (body,),
-                                n_collected_bodies,
-                                index=index,
-                            )
-                            orelse_instr = get_body_instructions(
-                                (orelse,),
-                                n_collected_bodies,
-                                index=index,
-                            )
+                        match (body_instr, orelse_instr):
+                            case (_Returned(), _Returned()):
+                                return _Returned(instr=n_body)
+                            case _:
+                                pass
 
-                            new_body += [
-                                _create_if(test, body_instr.instr, orelse_instr.instr)
-                            ]
+                    case _:
+                        n_body += [instr]
 
-                            match (body_instr, orelse_instr):
-                                case (_Returned(), _Returned()):
-                                    return _Returned(instr=new_body)
-                                case _:
-                                    pass
-
-                        case _:
-                            new_body += [instr]
-
-            if len(collected_bodies) == 0:
+            if len(outer_scope_instr) == 0:
                 raise Exception(
                     f'Function "{func_name}" must return a monadic object that defines a `flat_map` method. '
                     "However, it returned None."
                 )
 
-            return _Instructions(new_body)
+            return _Instructions(n_body)
 
         args = [arg.arg for arg in func_ast.args.args]
-        body = get_body_instructions((func_ast.body,), tuple())
+        body = get_nested_flatmap_instr(func_ast.body)
 
-        dec_func_ast = _create_function(
+        dec_func_ast = ast.FunctionDef(
             name=func_name,
+            args=ast.arguments(
+                posonlyargs=[],
+                args=[
+                    ast.arg(
+                        arg=arg,
+                        lineno=0,
+                        col_offset=0,
+                    )
+                    for arg in args
+                ],
+                kwonlyargs=[],
+                kw_defaults=[],
+                defaults=[],
+            ),
             body=body.instr,
-            args=[_create_arg(arg) for arg in args],
+            decorator_list=[],
+            type_params=[],
             lineno=func_ast.lineno,
+            col_offset=0,
         )
         ast.increment_lineno(dec_func_ast, func_lineno - 1)
 
         # print(ast.dump(new_func_ast, indent=4))
         # print(ast.unparse(new_func_ast))
 
+        module = ast.Module(
+            body=[dec_func_ast],
+            type_ignores=[],
+        )
+
         code = compile(
-            _create_module(body=[dec_func_ast]),
+            module,
             filename=inspect.getsourcefile(func),
             mode="exec",
         )
@@ -268,21 +273,3 @@ class do:
         )
 
         return wraps(func)(dec_func)  # type: ignore
-
-
-class _ReturnTypeProtocol(Protocol):
-    def flat_map(self, func: Callable) -> _ReturnTypeProtocol: ...
-
-
-class _DoTyped(do):
-    def __init__(self):
-        super().__init__()
-
-    def __call__[**P, U, V: _ReturnTypeProtocol](
-        self,
-        func: Callable[P, Generator[U, None, V]],
-    ) -> Callable[P, V]:
-        return super().__call__(func)
-
-
-do_typed = _DoTyped()

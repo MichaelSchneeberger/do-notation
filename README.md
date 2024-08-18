@@ -1,13 +1,14 @@
 # Do-notation
 
-Do-notation is a Python package that introduces Haskell-like do notation using a Python decorator. 
+Do-notation is a Python package that introduces Haskell-like do-notation using a Python decorator.
 
 ## Features
 
-* Haskell-like Behavior: Emulate Haskell's do notation for Python objects that implement the `flat_map` (or `bind`) method.
-* Syntactic sugar: Use the `do` decorator to convert generator functions into nested `flat_map` method calls by modifying the Abstract Syntax Tree (AST).
-* Simplified Syntax: Write complex monadic `flat_map` sequences in a clean and readable way without needing to define auxillary functions.
-* Type hinting: The type hint of value returned by the decorated generator function is correctly inferred by the type checkers.
+* Haskell-like Behavior: Emulate Haskell's do-notation for Python objects that implement the `flat_map` (or `bind`) method.
+* Syntactic sugar: Use the `do` decorator to convert generator functions into nested `flat_map` method calls by using the Abstract Syntax Tree (AST).
+* Simplified Syntax: Write complex nested `flat_map` sequences in a clean and readable way without needing to define auxillary functions.
+* Minimalistic Implementation: The decorator relies on simple and straightforward conversion rules, reducing potential bugs and making it adaptable to a wide range of scenarios.
+* Type hinting: The type hint of the value returned by the decorated generator function is correctly inferred by type checkers when using `yield from`.
 
 ## Installation
 
@@ -88,8 +89,6 @@ def example_translated(init):
         )
     )
 ```
-
-<!-- This translation shows how each yield in the generator function corresponds to a `flat_map` call that takes a lambda function, chaining the monadic operations together. -->
 
 ## Yield Placement Restrictions
 
@@ -258,21 +257,11 @@ def example(init):
 m: StateMonad[int] = example(3)
 ```
 
-Furthermore, if you are using `flat_map` as the monadic method name, you can use `do_typed` to ensure that the returned object correctly implements the `flat_map` method. 
-
-In the example below, type checking fails because the integer `1` does not implement a `flat_map` method.
-Instead, the generator function should return a `StateMonad` object.
-
-``` python
-from donotation import do_typed
-
-# This will fail type checking since the return value does not implement `flat_map`
-@do_typed
-def example():
-    return 1
-```
-
 ## Limitations
+
+<!-- ### Yield placement restriction
+
+As described above, the yield statement cannot be placed inside a `for` or `while` loop. -->
 
 ### Local variables
 
@@ -322,3 +311,10 @@ def do(fn):
 
 This implementation has the disadvantage that each function given to the `flat_map` method (i.e. `send_and_yield`) can only be called once due to a the instruction pointer of the generator.
 This difference is crucial for handling monadic operations correctly and ensuring that the `do` decorator works as expected in various scenarios.
+
+Other Python libraries that implement the do-notation:
+
+* [https://github.com/internetimagery/do-not](https://github.com/internetimagery/do-not)
+* [https://github.com/underspecified/GenMonads](https://github.com/underspecified/GenMonads)
+* [https://github.com/Technologicat/unpythonic](https://github.com/Technologicat/unpythonic)
+* [https://github.com/papaver/pyfnz](https://github.com/papaver/pyfnz)
