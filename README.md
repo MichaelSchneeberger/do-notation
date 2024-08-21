@@ -284,10 +284,11 @@ y = 2
 
 Here are some other Python libraries that implement the do-notation using a generator function:
 
-* [https://github.com/jasondelaat/pymonad](https://github.com/jasondelaat/pymonad)
-* [https://github.com/dry-python/returns](https://github.com/dry-python/returns)
-* [https://github.com/TRCYX/py_monad_do](https://github.com/TRCYX/py_monad_do)
-* [https://github.com/dbrattli/Expression](https://github.com/dbrattli/Expression)
+* [https://github.com/TRCYX/py_monad_do](https://github.com/TRCYX/py_monad_do/blob/master/monad_do/do_simple.py)
+* [https://github.com/dbrattli/Expression](https://github.com/dbrattli/Expression/blob/main/expression/core/builder.py)
+* [https://github.com/JadenGeller/Guac](https://github.com/JadenGeller/Guac/blob/master/guac/monad.py)
+* [https://github.com/jyuhuan/do.py](https://github.com/jyuhuan/do.py)
+* [https://gist.github.com/s-zeng/ec7fb6a331f294d13133bb391e6396b3](https://gist.github.com/s-zeng/ec7fb6a331f294d13133bb391e6396b3)
 
 These libaries implement the `do` decorator as a real generator, similar to the following pseudo-code:
 
@@ -312,22 +313,21 @@ def do(fn):
 This implementation has the disadvantage that each function given to the `flat_map` method (i.e. `send_and_yield`) can only be called once due to a the instruction pointer of the generator.
 This difference is crucial for handling monadic operations correctly and ensuring that the `do` decorator works as expected in various scenarios.
 
-A similar Pyhton library that implements the do-notation based on left shift operation `<<` using AST:
+A Pyhton library, that is similar to this library, implements the do-notation based on left shift operation `<<`, achieved by modifing the AST:
 * [https://gist.github.com/internetimagery/7012246ac8aae8fa5e185f634db60582](https://gist.github.com/internetimagery/7012246ac8aae8fa5e185f634db60582)
 
-These Python libraries implement the do-notation as a for comprehensions:
-* [https://github.com/internetimagery/do-not](https://github.com/internetimagery/do-not)
-* [https://github.com/underspecified/GenMonads](https://github.com/underspecified/GenMonads)
-* [https://github.com/papaver/pyfnz](https://github.com/papaver/pyfnz)
+These Python libraries implement the do-notation as a for comprehensions similar as in Scala, achieved by modifying the AST:
+* [https://github.com/internetimagery/do-not](https://github.com/internetimagery/do-not/blob/main/donot/_interpreter.py)
+* [https://github.com/underspecified/GenMonads](https://github.com/underspecified/GenMonads/blob/master/genmonads/syntax.py)
 
-These Python libraries implement the do-notation using the `let` operator:
+These Python libraries implement the do-notation using the `let` operator, eliminating the need for nested function structures. However, this approach limits variable access, as values can only be retrieved via attributes of an environment object.
 * [https://github.com/Technologicat/unpythonic](https://github.com/Technologicat/unpythonic)
 * [https://github.com/dbrattli/OSlash](https://github.com/dbrattli/OSlash)
 
 
 Other Python libraries that implement the do-notation:
-* [https://github.com/JadenGeller/Guac](https://github.com/JadenGeller/Guac)
-* [https://github.com/imh/python_do_notation](https://github.com/imh/python_do_notation)
-* [https://github.com/bedekelly/monado](https://github.com/bedekelly/monado)
-* [https://github.com/jyuhuan/do.py](https://github.com/jyuhuan/do.py)
-* [https://gist.github.com/s-zeng/ec7fb6a331f294d13133bb391e6396b3](https://gist.github.com/s-zeng/ec7fb6a331f294d13133bb391e6396b3)
+* [https://github.com/papaver/pyfnz](https://github.com/papaver/pyfnz)
+* [https://github.com/dry-python/returns](https://github.com/dry-python/returns)
+* [https://github.com/imh/python_do_notation](https://github.com/imh/python_do_notation) (modifies the AST)
+* [https://github.com/bedekelly/monado](https://github.com/bedekelly/monado) (reruns generator with accumulated values)
+
