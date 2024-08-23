@@ -1,5 +1,6 @@
 from donotation import do
 
+
 class StateMonad:
     def __init__(self, func):
         self.func = func
@@ -11,19 +12,22 @@ class StateMonad:
 
         return StateMonad(func=next)
 
+
 def collect_even_numbers(num: int):
     def func(state: set):
         if num % 2 == 0:
             state = state | {num}
 
         return state, num
+
     return StateMonad(func)
 
-@do()
-def example(init):
-    x = yield collect_even_numbers(init+1)
 
-    y = yield x+1
+@do()
+def example1(init):
+    x = yield collect_even_numbers(init + 1)
+
+    y = yield x + 1
     """
     Traceback (most recent call last):
     File "[...]\main.py", line 8, in <module>
@@ -43,14 +47,44 @@ def example(init):
     AttributeError: 'int' object has no attribute 'flat_map'
     """
 
-    z = yield collect_even_numbers(y+1)
-    return collect_even_numbers(z+1)
+    z = yield collect_even_numbers(y + 1)
+    return collect_even_numbers(z + 1)
+
+
+@do()
+def example2(init):
+    x = yield collect_even_numbers(init + 1)
+
+    raise Exception()
+    """
+    Traceback (most recent call last):
+    File "[...]\main.py", line 8, in <module>
+        import examples.raiseexceptionexample
+    File "[...]\examples\raiseexceptionexample.py", line 59, in <module>
+        tate, value = example2(3).func(state)
+                    ^^^^^^^^^^^^^^^^^^^^^^^
+    File "[...]\examples\raiseexceptionexample.py", line 10, in next
+        return func(value).func(n_state)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "[...]\examples\raiseexceptionexample.py", line 10, in next
+        return func(value).func(n_state)
+            ^^^^^^^^^^^
+    File "[...]\examples\raiseexceptionexample.py", line 53, in _donotation_flatmap_func_1
+        raise Exception()
+    Exception
+    """
+
+    z = yield collect_even_numbers(y + 1)
+    return collect_even_numbers(z + 1)
+
 
 state = set[int]()
-state, value = example(3).func(state)
+
+# state, value = example1(3).func(state)
+state, value = example2(3).func(state)
 
 # Output will be value=7
-print(f'{value=}')
+print(f"{value=}")
 
 # Output will be state={4, 6}
-print(f'{state=}')
+print(f"{state=}")
