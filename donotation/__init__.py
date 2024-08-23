@@ -64,11 +64,14 @@ class do:
         self,
         func: Callable[P, Generator[U, None, V]],
     ) -> Callable[P, V]:
-        func_lineno = func.__code__.co_firstlineno
 
         func_source = textwrap.dedent(inspect.getsource(func))
         func_ast = ast.parse(func_source).body[0]
         func_name = func_ast.name
+
+        # Adjust the line number in the AST to align with the original AST structure
+        func_lineno = func.__code__.co_firstlineno - func_ast.lineno + 1
+        ast.increment_lineno(func_ast, func_lineno)
 
         def get_nested_flatmap_instr(
             current_scope_instr: list,
@@ -107,7 +110,6 @@ class do:
 
                 # collect all subsequent instructions and put them inside a local function
                 # called '_donotation_flatmap_func_[index]'
-
                 n_current_scope_instr = (
                     current_scope_instr[instr_index + 1 :] + outer_scope_instr
                 )
@@ -135,13 +137,12 @@ class do:
                         body=func_body.instr,
                         decorator_list=[],
                         type_params=[],
-                        lineno=func_lineno,
+                        lineno=0,
                         col_offset=0,
                     )
                 ]
 
-                # call the flat_map method with the local function as an argument
-
+                # call the flat_map method with the '_donotation_flatmap_func_[index]' function as an argument
                 nested_func_ast = ast.Name(
                     id=nested_func_name,
                     ctx=ast.Load(),
@@ -243,10 +244,6 @@ class do:
             lineno=func_ast.lineno,
             col_offset=0,
         )
-        ast.increment_lineno(dec_func_ast, func_lineno - 1)
-
-        # print(ast.dump(new_func_ast, indent=4))
-        # print(ast.unparse(new_func_ast))
 
         module = ast.Module(
             body=[dec_func_ast],
