@@ -259,25 +259,31 @@ m: StateMonad[int] = example(3)
 
 ## Limitations
 
-<!-- ### Yield placement restriction
-
-As described above, the yield statement cannot be placed inside a `for` or `while` loop. -->
-
 ### Local variables
 
 Local variables defined after the point where the `do` decorator is applied to the genertor function cannot be accessed within the generator function.
 The following example raises a `NamedError` exception.
 
 ``` python
-x = 1
+@do()
+def example():
+    # NameError: name 'init' is not defined. Did you mean: 'int'?
+    x = yield collect_even_numbers(init + 1)
 
+
+init = 3
+```
+
+<!-- ### Shadowing variables
+
+There are cases where shadowing variable declarations do not work with the do-decorated function.
+
+``` python
 @do()
 def apply_write():
     # NameError: name 'y' is not defined
     return Writer(x + y, f'adding {x} and {y}')
-
-y = 2
-```
+``` -->
 
 
 ## References
@@ -293,21 +299,23 @@ Here are some other Python libraries that implement the do-notation using a gene
 These libaries implement the `do` decorator as a real generator, similar to the following pseudo-code:
 
 ``` python
-def do(fn):
-    def wrapper(*args, **kwargs):
-        gen = fn(*args, **kwargs)
+def do():
+    def decorator[V](fn: Callable[..., Generator[Any, None, V]]):
+        def wrapper(*args, **kwargs) -> V:
+            gen = fn(*args, **kwargs)
 
-        def send_and_yield(value):
-            try:
-                next_val = gen.send(value)
-            except StopIteration as e:
-                result = e.value
-            else:
-                result = next_val.flat_map(send_and_yield)
-            return result
+            def send_and_yield(value):
+                try:
+                    next_val = gen.send(value)
+                except StopIteration as e:
+                    result = e.value
+                else:
+                    result = next_val.flat_map(send_and_yield)
+                return result
 
-        return send_and_yield(None)
-    return wrapper
+            return send_and_yield(None)
+        return wrapper
+    return decorator
 ```
 
 This implementation has the disadvantage that each function given to the `flat_map` method (i.e. `send_and_yield`) can only be called once due to a the instruction pointer of the generator.
