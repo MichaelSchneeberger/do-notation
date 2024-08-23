@@ -1,6 +1,6 @@
 [project]
 name = "donotation"
-version = "0.0.8"
+version = "0.0.9"
 description = 'A library that introduces the Haskell-like do notation using a Python decorator.'
 authors = [
   {name="Michael Schneeberger", email="michael.schneeb@hotmail.com"},
@@ -9,7 +9,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 
 [project.urls]
-Homepage = "https://github.com/MichaelSchneeberger/donotation"
+Homepage = "https://github.com/MichaelSchneeberger/do-notation"
 
 [tool.hatch.build.targets.sdist]
 include = [
