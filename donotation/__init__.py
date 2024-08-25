@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import ast
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import wraps
 import inspect
 import textwrap
@@ -64,7 +64,6 @@ class do:
         self,
         func: Callable[P, Generator[U, None, V]],
     ) -> Callable[P, V]:
-
         func_source = textwrap.dedent(inspect.getsource(func))
         func_ast = ast.parse(func_source).body[0]
         func_name = func_ast.name
@@ -79,20 +78,22 @@ class do:
             nesting_index: int = 0,
         ) -> _Instructions:
             """
-            This function traverses the given body and translates the sequence of yield statements into 
+            This function traverses the given body and translates the sequence of yield statements into
             a nested `flat_map` method call sequence.
 
             Arguments:
             - current_scope_instr: List of instructions being traversed by the function until a yield statement
               is encountered.
-            - outer_scope_instr: List of instructions that follow (possibly nested) if-else statements. 
+            - outer_scope_instr: List of instructions that follow (possibly nested) if-else statements.
               This is used when `get_nested_flatmap_instr` is called recursively.
             - nesting_index: Index representing the current depth within the nested flat_map call stack.
             """
 
             n_body = []
 
-            def _case_yield(yield_value, lineno, arg_name="_", n_body=n_body):
+            def _case_yield(
+                yield_value, lineno, arg_name="_", n_body=n_body, assign_instr=[]
+            ):
                 # If the generator function does not explicitly define a return value
                 # (resulting in None by Python convention), the monadic object produced
                 # by the last yield statement is directly returned rather than invoking
@@ -134,7 +135,7 @@ class do:
                             kw_defaults=[],
                             defaults=[],
                         ),
-                        body=func_body.instr,
+                        body=assign_instr + func_body.instr,
                         decorator_list=[],
                         type_params=[],
                         lineno=0,
@@ -149,7 +150,9 @@ class do:
                     lineno=0,
                     col_offset=0,
                 )
-                flat_map_ast = self.to_flat_map_ast(yield_value, nested_func_ast, lineno)
+                flat_map_ast = self.to_flat_map_ast(
+                    yield_value, nested_func_ast, lineno
+                )
                 return_flat_map_call = ast.Return(
                     value=flat_map_ast,
                     lineno=0,
@@ -172,6 +175,31 @@ class do:
                         lineno=lineno,
                     ):
                         return _case_yield(yield_value, lineno, arg_name)
+
+                    case ast.Assign(
+                        targets=targets,
+                        value=ast.Yield(value=yield_value)
+                        | ast.YieldFrom(value=yield_value),
+                        lineno=lineno,
+                    ):
+                        arg_name = f"_donotation_arg_name_{nesting_index}"
+                        assign_instr = ast.Assign(
+                            targets=targets,
+                            value=ast.Name(
+                                arg_name,
+                                lineno=0,
+                                col_offset=0,
+                                ctx=ast.Load(),
+                            ),
+                            lineno=0,
+                            col_offset=0,
+                        )
+                        return _case_yield(
+                            yield_value,
+                            lineno,
+                            f"_donotation_arg_name_{nesting_index}",
+                            assign_instr=[assign_instr],
+                        )
 
                     case ast.Return():
                         return _Returned(n_body + [instr])
@@ -219,29 +247,15 @@ class do:
 
             return _Instructions(n_body)
 
-        args = [arg.arg for arg in func_ast.args.args]
-        body = get_nested_flatmap_instr(func_ast.body)
+        body = get_nested_flatmap_instr(func_ast.body).instr
 
         dec_func_ast = ast.FunctionDef(
             name=func_name,
-            args=ast.arguments(
-                posonlyargs=[],
-                args=[
-                    ast.arg(
-                        arg=arg,
-                        lineno=0,
-                        col_offset=0,
-                    )
-                    for arg in args
-                ],
-                kwonlyargs=[],
-                kw_defaults=[],
-                defaults=[],
-            ),
-            body=body.instr,
-            decorator_list=[],
-            type_params=[],
-            lineno=func_ast.lineno,
+            args=func_ast.args,
+            body=body,
+            decorator_list=[],  # ignore decorators
+            type_params=func_ast.type_params,
+            lineno=0,
             col_offset=0,
         )
 
