@@ -23,6 +23,7 @@ class do:
         attr: str = "flat_map",
         callback: Callable[[Any, Callable[[Any], Any]], Any] | None = None,
     ):
+        
         if callback:
             callback_source = inspect.getsource(callback)
             callback_ast = ast.parse(callback_source).body[0]
@@ -62,8 +63,12 @@ class do:
 
     def __call__[**P, U, V](
         self,
-        func: Callable[P, Generator[U, None, V]],
+        func: Callable[P, Generator[U, None, V]] | Callable[P, V],
     ) -> Callable[P, V]:
+        
+        if not inspect.isgeneratorfunction(func):
+            return func
+
         func_source = textwrap.dedent(inspect.getsource(func))
         func_ast = ast.parse(func_source).body[0]
         func_name = func_ast.name
@@ -278,7 +283,7 @@ class do:
         exec(code, globals)
         dec_func = globals[func_name]
 
-        assert not inspect.isgenerator(dec_func), (
+        assert not inspect.isgeneratorfunction(dec_func), (
             f'Unsupported yielding detected in the body of the function "{func_name}" yields not supported. '
             "Yielding operations are only allowed within if-else statements."
         )
