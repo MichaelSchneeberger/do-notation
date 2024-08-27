@@ -23,6 +23,7 @@ class do:
         self,
         attr: str = "flat_map",
         callback: Callable[[Any, Callable[[Any], Any]], Any] | None = None,
+        print_code: bool = False,
     ):
         
         if callback:
@@ -61,6 +62,7 @@ class do:
                 )
 
         self.to_flat_map_ast = to_flat_map_ast
+        self.print_code = print_code
 
     def __call__[**P, U, V](
         self,
@@ -273,6 +275,13 @@ class do:
                         if all_returned[0]:
                             return _Returned(instr=n_body)
 
+                    case ast.For():
+                        # Avoid using for loops to prevent complex variable shadowing issues.
+                        raise Exception(
+                            'Do not use for loops directly within a `do`-decorated generator function. '
+                            'Instead, encapulate the for loop inside a separate function.'
+                        )
+
                     case _:
                         n_body.append(instr)
 
@@ -300,6 +309,10 @@ class do:
             body=[dec_func_ast],
             type_ignores=[],
         )
+
+        if self.print_code:
+            # print(ast.dump(new_func_ast, indent=4))
+            print(ast.unparse(module))
 
         code = compile(
             module,
