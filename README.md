@@ -75,24 +75,28 @@ The `do` decorator works by substituting the `yield` and `yield from` statements
 
 1. AST traversal: Traverse the AST of the generator function to inspect all statements.
 2. Yield operation: When an yield operations is encountered, define an nested function containing the remaining statements. This nested function is then called within the `flat_map` method call.
-3. If-else statements: If an if-else statement is encountered, traverse its AST to inspect all statements. If an yield statement is found, the nested function for the `flat_map` method includes the rest of the if-else statement and the remaining statements of the generator function.
+3. If-else/match statements: If an if-else or match statement is encountered, traverse its AST to inspect all statements of each case. If an yield statement is found, the nested function for the `flat_map` method includes the rest of the if-else or match statement and the remaining statements of the generator function.
 
-The above example is conceptually translated into the following nested `flat_map` calls:
+The above example is translated into the following nested `flat_map` calls:
 
 ``` python
-def example_translated(init):
-    return collect_even_numbers(init + 1).flat_map(lambda x: 
-        collect_even_numbers(x + 1).flat_map(lambda y: 
-            collect_even_numbers(y + 1).flat_map(lambda z: 
-                collect_even_numbers(z + 1)
-            )
-        )
-    )
+def example(init):
+    def _donotation_flatmap_func_0(x):
+        def _donotation_flatmap_func_1(y):
+            def _donotation_flatmap_func_2(z):
+                return collect_even_numbers(z + 1)
+
+            return collect_even_numbers(y + 1).flat_map(_donotation_flatmap_func_2)
+
+        return collect_even_numbers(x + 1).flat_map(_donotation_flatmap_func_1)
+
+    return collect_even_numbers(init + 1).flat_map(_donotation_flatmap_func_0)
 ```
+You can print the unparsed code of the decorated function by using the `@do(print_code=True)` option.
 
 ## Yield Placement Restrictions
 
-The yield operations within the generator can only be placed within if-else statements but not within for or while statements. Yield statements within the for or while statement are not substituted by a monadic `flat_map` chaining, resulting in a generator function due to the leftover yield statements. In this case, an exception is raised.
+The yield operations within the generator can only be placed within if-else or match statements but not within for or while statements. Yield statements within the for or while statement are not substituted by a monadic `flat_map` chaining, resulting in a generator function due to the leftover yield statements. In this case, an exception is raised.
 
 ### Good Example
 
