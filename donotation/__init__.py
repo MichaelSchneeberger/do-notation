@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+from copy import copy
 from dataclasses import dataclass, replace
 from functools import wraps
 import inspect
@@ -124,7 +125,8 @@ class do:
                     nesting_index=nesting_index + 1,
                 )
                 nested_func_name = f"_donotation_flatmap_func_{nesting_index}"
-                n_body += [
+
+                n_body.append(
                     ast.FunctionDef(
                         name=nested_func_name,
                         args=ast.arguments(
@@ -146,7 +148,7 @@ class do:
                         lineno=0,
                         col_offset=0,
                     )
-                ]
+                )
 
                 # call the flat_map method with the '_donotation_flatmap_func_[index]' function as an argument
                 nested_func_ast = ast.Name(
@@ -196,9 +198,9 @@ class do:
                                 col_offset=0,
                                 ctx=ast.Load(),
                             ),
-                            lineno=0,
-                            col_offset=0,
                         )
+                        ast.copy_location(assign_instr, instr)
+                        
                         return _case_yield(
                             yield_value,
                             lineno,
@@ -225,24 +227,54 @@ class do:
                             nesting_index=nesting_index,
                         )
 
-                        n_body += [
-                            ast.If(
-                                test=test,
-                                body=body_instr.instr,
-                                orelse=orelse_instr.instr,
-                                lineno=0,
-                                col_offset=0,
-                            )
-                        ]
+                        n_instr = ast.If(
+                            test=test,
+                            body=body_instr.instr,
+                            orelse=orelse_instr.instr,
+                        )
+                        ast.copy_location(n_instr, instr)
+                        n_body.append(n_instr)
 
                         match (body_instr, orelse_instr):
                             case (_Returned(), _Returned()):
                                 return _Returned(instr=n_body)
-                            case _:
-                                pass
+
+                    case ast.Match(subject=subject, cases=cases):
+                        n_outer_scope_instr = (
+                            current_scope_instr[instr_index + 1 :] + outer_scope_instr
+                        )
+
+                        all_returned = [True]
+                        def gen_cases():
+                            for case in cases:
+                                match case:
+                                    case ast.match_case(pattern=pattern, guard=guard, body=body):
+                                        match_instr = get_nested_flatmap_instr(
+                                            current_scope_instr=body,
+                                            outer_scope_instr=n_outer_scope_instr,
+                                            nesting_index=nesting_index,
+                                        )
+
+                                        if not isinstance(match_instr, _Returned):
+                                            all_returned[0] = False
+
+                                        n_case = ast.match_case(
+                                            pattern=pattern,
+                                            guard=guard,
+                                            body=match_instr.instr,
+                                        )
+                                        ast.copy_location(n_case, case)
+                                        yield n_case
+
+                        n_instr = ast.Match(subject=subject, cases=list(gen_cases()))
+                        ast.copy_location(n_instr, instr)
+                        n_body.append(n_instr)
+
+                        if all_returned[0]:
+                            return _Returned(instr=n_body)
 
                     case _:
-                        n_body += [instr]
+                        n_body.append(instr)
 
             if len(outer_scope_instr) == 0:
                 raise Exception(
