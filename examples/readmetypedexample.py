@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Callable, Generator
-from donotation import do_typed
+from donotation import do
 
 class StateMonad[S, T]:
     def __init__(self, func: Callable[[S], tuple[S, T]]):
@@ -24,15 +24,18 @@ def collect_even_numbers(num: int):
         return state, num
     return StateMonad(func)
 
-@do_typed
+@do()
 def example(init):
     x = yield from collect_even_numbers(init+1)
     y = yield from collect_even_numbers(x+1)
     z = yield from collect_even_numbers(y+1)
     return collect_even_numbers(z+1)
 
+# Correct type hint is inferred
+monad = example(3)
+
 state = set[int]()
-state, value = example(3).func(state)
+state, value = monad.func(state)
 
 # Output will be valuqe=7
 print(f'{value=}')
