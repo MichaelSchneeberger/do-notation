@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import ast
-from copy import copy
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from functools import wraps
 import inspect
 import textwrap
@@ -287,8 +286,9 @@ class do:
 
             if len(outer_scope_instr) == 0:
                 raise Exception(
-                    f'Function "{func_name}" must return a monadic object that defines a `flat_map` method. '
-                    "However, it returned None."
+                    f"No return statement was found when traversing the AST of function '{func_name}'. "
+                    "Ensure the function either returns an object that implements a `flat_map` method "
+                    "or uses a yield operation as its final instruction."
                 )
 
             return _Instructions(n_body)
@@ -311,7 +311,6 @@ class do:
         )
 
         if self.print_code:
-            # print(ast.dump(new_func_ast, indent=4))
             print(ast.unparse(module))
 
         code = compile(
