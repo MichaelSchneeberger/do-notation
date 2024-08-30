@@ -6,6 +6,7 @@ from functools import wraps
 import inspect
 import textwrap
 from typing import Any, Callable, Generator
+import warnings
 
 
 @dataclass
@@ -209,9 +210,6 @@ class do:
                             assign_instr=[assign_instr],
                         )
 
-                    case ast.Return():
-                        return _Returned(n_body + [instr])
-
                     case ast.If(test, body, orelse):
                         n_outer_scope_instr = (
                             current_scope_instr[instr_index + 1 :] + outer_scope_instr
@@ -274,12 +272,18 @@ class do:
                         if all_returned[0]:
                             return _Returned(instr=n_body)
 
+                    # allow do decorated generation function to end with a raise instruction
+                    case ast.Return() | ast.Raise():
+                        n_body.append(instr)
+                        return _Returned(instr=n_body)
+
                     case ast.For():
                         # Avoid using for loops to prevent complex variable shadowing issues.
-                        raise Exception(
+                        warnings.warn(
                             'Do not use for loops directly within a `do`-decorated generator function. '
                             'Instead, encapulate the for loop inside a separate function.'
                         )
+                        n_body.append(instr)
 
                     case _:
                         n_body.append(instr)
