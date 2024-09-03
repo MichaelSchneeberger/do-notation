@@ -112,7 +112,7 @@ class do:
                 ):
                     return_value = ast.Return(
                         value=yield_value,
-                        lineno=0,
+                        lineno=lineno,  # lineno of `yield from` instruction
                         col_offset=0,
                     )
                     return _Returned(n_body + [return_value])
@@ -125,7 +125,7 @@ class do:
                 func_body = get_nested_flatmap_instr(
                     current_scope_instr=n_current_scope_instr,
                     nesting_index=nesting_index + 1,
-                )
+                ).instr
                 nested_func_name = f"_donotation_flatmap_func_{nesting_index}"
 
                 n_body.append(
@@ -144,7 +144,7 @@ class do:
                             kw_defaults=[],
                             defaults=[],
                         ),
-                        body=assign_instr + func_body.instr,
+                        body=assign_instr + func_body,
                         decorator_list=[],
                         type_params=[],
                         lineno=0,
@@ -160,11 +160,12 @@ class do:
                     col_offset=0,
                 )
                 flat_map_ast = self.to_flat_map_ast(
-                    yield_value, nested_func_ast, lineno
+                    yield_value, nested_func_ast, 
+                    func_body[-1].lineno  # lineno of `return` or the next `yield from` instruction
                 )
                 return_flat_map_call = ast.Return(
                     value=flat_map_ast,
-                    lineno=0,
+                    lineno=lineno,  # lineno of `yield from` instruction
                     col_offset=0,
                 )
                 return _Returned(n_body + [return_flat_map_call])
