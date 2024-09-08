@@ -281,8 +281,8 @@ class do:
                     case ast.For():
                         # Avoid using for loops to prevent complex variable shadowing issues.
                         warnings.warn(
-                            'Do not use for loops directly within a `do`-decorated generator function. '
-                            'Instead, encapulate the for loop inside a separate function.'
+                            f"Do not use for loops directly within the `do`-decorated generator function '{func}'. "
+                            "Instead, encapulate the for loop inside a separate function."
                         )
                         n_body.append(instr)
 
@@ -291,7 +291,7 @@ class do:
 
             if len(outer_scope_instr) == 0:
                 raise Exception(
-                    f"No return statement was found when traversing the AST of function '{func_name}'. "
+                    f"No return statement was found when traversing the AST of function '{func}'. "
                     "Ensure the function either returns an object that implements a `flat_map` method "
                     "or uses a yield operation as its final instruction."
                 )
